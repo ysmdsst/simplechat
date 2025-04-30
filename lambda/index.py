@@ -142,8 +142,9 @@
 import json
 import os
 import urllib.request
+import traceback
 
-FASTAPI_URL = "https://2330-35-198-242-173.ngrok-free.app//generate" #APIのURLを正しく入力
+FASTAPI_URL = "https://2330-35-198-242-173.ngrok-free.app/generate"  
 
 def lambda_handler(event, context):
     try:
@@ -154,18 +155,27 @@ def lambda_handler(event, context):
             user_info = event['requestContext']['authorizer']['claims']
             print(f"Authenticated user: {user_info.get('email') or user_info.get('cognito:username')}")
 
-        body = json.loads(event['body'])
-        message = body['message']
-        conversation_history = body.get('conversationHistory', [])
+        # イベントのボディを安全に読み込む
+        if isinstance(event['body'], str):
+            body = json.loads(event['body'])
+        else:
+            body = event['body']
 
-        print("Sending message to FastAPI server:", message)
+        message = body['message']  # フロント側から送られるメッセージ
+        # conversationHistory = body.get('conversationHistory', [])  # 使用しない場合は省略可能
 
+        print("Sending message to FastAPI server as prompt:", message)
+
+        # FastAPIのモデルに一致するpayloadを構築
         payload = {
-            "message": message,
-            "conversationHistory": conversation_history
+            "prompt": message,
+            "max_new_tokens": 512,
+            "do_sample": True,
+            "temperature": 0.7,
+            "top_p": 0.9
         }
 
-        # POSTリクエストの作成
+        # POSTリクエストを作成・送信
         req = urllib.request.Request(
             FASTAPI_URL,
             data=json.dumps(payload).encode('utf-8'),
@@ -173,15 +183,16 @@ def lambda_handler(event, context):
             method='POST'
         )
 
-        # リクエスト送信とレスポンス受信
+        # FastAPIからのレスポンス受信
         with urllib.request.urlopen(req) as res:
             res_body = res.read().decode('utf-8')
             response_json = json.loads(res_body)
 
         print("Response from FastAPI server:", response_json)
 
-        assistant_response = response_json.get("response", "")
-        updated_history = response_json.get("conversationHistory", conversation_history)
+        # レスポンスの取り出し
+        assistant_response = response_json.get("generated_text", "")
+        # updated_history = conversation_history  # 会話履歴管理が必要なら後ほど実装
 
         return {
             "statusCode": 200,
@@ -194,12 +205,13 @@ def lambda_handler(event, context):
             "body": json.dumps({
                 "success": True,
                 "response": assistant_response,
-                "conversationHistory": updated_history
+                # "conversationHistory": updated_history  # 会話履歴が必要な場合はこちらも返却
             })
         }
 
     except Exception as error:
         print("Error:", str(error))
+        traceback.print_exc()  # スタックトレースを出力（CloudWatchで詳細確認できる）
         return {
             "statusCode": 500,
             "headers": {
@@ -213,4 +225,5 @@ def lambda_handler(event, context):
                 "error": str(error)
             })
         }
+
 
