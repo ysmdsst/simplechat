@@ -143,7 +143,7 @@ import json
 import os
 import urllib.request
 
-FASTAPI_URL = "https://your-fastapi-server-url.com/infer"
+FASTAPI_URL = "https://2330-35-198-242-173.ngrok-free.app//generate" #APIのURLを正しく入力
 
 def lambda_handler(event, context):
     try:
