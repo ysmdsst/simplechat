@@ -143,7 +143,7 @@ import json
 import os
 import urllib.request
 
-FASTAPI_URL = os.environ.get("FASTAPI_URL", "https://your-fastapi-server-url.com/infer") #ここに立てたFastAPIのURLを入力
+FASTAPI_URL = "https://your-fastapi-server-url.com/infer"
 
 def lambda_handler(event, context):
     try:
